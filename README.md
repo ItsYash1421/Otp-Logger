@@ -1,97 +1,95 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Android Assignment — OTP Logger (Kotlin + Jetpack Compose)
 
-# Getting Started
+This app implements a passwordless authentication flow: Email → OTP → Session timer → Logout. No backend is required; all logic runs locally.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## App Flow
 
-## Step 1: Start Metro
+1. LoginScreen: enter email → Send OTP
+2. OtpScreen: enter 6-digit OTP → verify / resend
+3. SessionScreen: show start time + live duration (mm:ss) → logout
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+## 1) OTP logic and expiry handling
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+- OTP is a random 6-digit code.
+- OTP TTL is 60 seconds (time is based on `System.currentTimeMillis()`).
+- Each email gets a maximum of 3 attempts. Attempts decrement on each wrong OTP.
+- On success, OTP data is cleared. On expiry, OTP data is also cleared.
+- Resend OTP:
+  - invalidates the previous OTP
+  - resets attempts
+  - resets expiry
+- Bonus: resend cooldown is enforced (you need to wait before resending).
+
+Implementation: `android/app/src/main/java/com/androidassignment/data/OtpManager.kt`
+
+## 2) Data structures used (and why)
+
+OTP is stored per email using:
+
+- `Map<String, OtpData>` where key = normalized email (`trim().lowercase()`)
+- Why:
+  - clean per-email separation
+  - O(1) lookups for generate/validate/snapshot
+  - scales naturally for multiple emails
+
+Implementation: `android/app/src/main/java/com/androidassignment/data/OtpManager.kt`
+
+## 3) Which external SDK was chosen (and why)
+
+I chose **Timber** because:
+
+- lightweight and easy to set up
+- great for local debugging/logging
+- no dashboard/configuration overhead
+
+Events logged:
+- OTP generated
+- OTP validation success
+- OTP validation failure
+- Logout
+
+Implementation:
+- Logger: `android/app/src/main/java/com/androidassignment/analytics/AnalyticsLogger.kt`
+- Initialization: `android/app/src/main/java/com/androidassignment/App.kt`
+
+## 4) What I used GPT for vs what I implemented and understood
+
+Used GPT for:
+- planning/checklist and rough structure guidance (screens, ViewModel, data layer, edge cases)
+- quick reference for Compose patterns (state hoisting, LaunchedEffect usage)
+
+Implemented and understood myself:
+- full OTP rules (expiry/attempts/resend/cooldown) + unit tests
+- ViewModel + sealed UI state flow (one-way data flow)
+- Compose UI (keyboard handling, countdown UI, session timer)
+- Timber integration + event logging
+- session persistence (app restart keeps you logged-in) using DataStore
+
+## Session persistence (app close/reopen safe)
+
+After OTP verification, the session (email + startTime) is saved to DataStore. If the app is killed and reopened, the session is restored and the timer continues from the original start time.
+
+Implementation: `android/app/src/main/java/com/androidassignment/data/SessionStore.kt`
+
+## Run
+
+Open `AndroidAssignment/android` in Android Studio, or run:
 
 ```sh
-# Using npm
-npm start
-
-# OR using Yarn
-yarn start
+cd android
+./gradlew assembleDebug
 ```
 
-## Step 2: Build and run your app
-
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
+Install (physical device connected):
 
 ```sh
-# Using npm
-npm run android
-
-# OR using Yarn
-yarn android
+cd android
+./gradlew installDebug
 ```
 
-### iOS
-
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+## Tests
 
 ```sh
-bundle install
+cd android
+./gradlew testDebugUnitTest
 ```
-
-Then, and every time you update your native dependencies, run:
-
-```sh
-bundle exec pod install
-```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
-npm run ios
-
-# OR using Yarn
-yarn ios
-```
-
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
-
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
-
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
